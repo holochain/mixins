@@ -9,3 +9,13 @@
 * Please feel free to offer pull requests to this repo for new Mixins
 * or to integrate a Mixin into hc-scaffold
 * Documentation is always welcome
+## Zomes
+### Anchors
+* This zome will create its own anchor to the DHT and it provided its own methords to link your new_anchors(i.e the anchor that you want to for your application).
+#### anchor_type_create(anchor_type)
+#### anchor_create(new_anchor)
+#### anchor_type_list()
+#### anchor_update()
+* (to be done)
+#### anchor_updatelink()
+* (to be done)
