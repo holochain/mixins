@@ -8,3 +8,4 @@
 ## Pull Requests
 * Please feel free to offer pull requests to this repo for new Mixins
 * or to integrate a Mixin into hc-scaffold
+* Documentation is always welcome
