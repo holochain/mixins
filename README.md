@@ -5,4 +5,6 @@
 * And some Mixins are lower level tools for aiding interaction with the Holochain infrastructure, e.g. `Anchors`
 * All the Mixins in this repository have been vetted by the Holochain team, and should have tests and examples
 * Where time has permitted Mixins are added to the Holochain Scaffolding Wizard - metacurrency/hc-scaffold (https://github.com/metacurrency/hc-scaffold), and can be added to your app DNA and configured from there.
-* Please feel free to offer pull requests for new Mixins or to integrate a Mixin into hc-scaffold
+## Pull Requests
+* Please feel free to offer pull requests to this repo for new Mixins
+* or to integrate a Mixin into hc-scaffold
