@@ -11,18 +11,18 @@ Notate (pending)
  : Provides abilities to tag, rate, comment, and annotate other DHT entries.
 
 Holodex (pending)
- : Integrates with indexing services of the external [Holodex application](/holochain/holodex).
+ : Integrates with indexing services of the external [Holodex application](https://github.com/holochain/holodex).
 
 DPKI (pending)
- : Integrates with key management and identity services of the external [Distributed Public Key Infrastructure application](/holochain/dpki).
+ : Integrates with key management and identity services of the external [Distributed Public Key Infrastructure application](https://github.com/holochain/dpki).
  
 HCHC (pending)
- : Connects to the "holochain of holochains" -- the App store or [directory of holochain applications[(/holochain/hchc) available to install
+ : Connects to the "holochain of holochains" -- the App store or [directory of holochain applications[(https://github.com/holochain/hchc) available to install
 
 ## Example Zomes (code patterns as chromosomes in the application DNA)
 
 ### Anchors: A common pattern
-Since holochain data is shared to a distributed hash table (DHT) which is spread across many computers in a sparse key/value store, sometimes you want to link a bunch of data elements together with a way to find them easily. The holochain DHT lets you place *links* between entries, so you can hang a bunch of links off of a predictable anchor. For example, you could create an Anchor Type for hashtags, and then link to all the posts which are tagged with "blockchain" from an anchor text of "blockchain" (AnchorType="hashtag" and AnchorText="blockchain") See documentation for this zome [in this repo's wiki](/holochain/mixin/wiki).
+Since holochain data is shared to a distributed hash table (DHT) which is spread across many computers in a sparse key/value store, sometimes you want to link a bunch of data elements together with a way to find them easily. The holochain DHT lets you place *links* between entries, so you can hang a bunch of links off of a predictable anchor. For example, you could create an Anchor Type for hashtags, and then link to all the posts which are tagged with "blockchain" from an anchor text of "blockchain" (AnchorType="hashtag" and AnchorText="blockchain") See documentation for this zome [in this repo's wiki](https://github.com/holochain/mixin/wiki).
 
 ### Holodex: An application bridge
 A module that takes the anchor links even further is the holodex mixin which allows a node to communicate with whatever nodes volunteer to be index servers. These index servers install the a Holodex **app** which builds keyword indexes of holochain content and automatically synchronizes data between indexing nodes. This holodex **mix-in** acts as a bridge to the outside application enables everyone send queries to index nodes, and lets index nodes bridge to the Holodex **app** for building indexes and servicing queries.
