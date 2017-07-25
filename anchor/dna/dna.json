@@ -73,7 +73,7 @@
                   "Exposure":"public"
               },{
                   "Name": "anchor_update",
-                  "CallingType": "string",
+                  "CallingType": "json",
                   "Exposure":"public"
               },{
                   "Name": "anchor_updatelink",
@@ -84,6 +84,11 @@
                   "CallingType": "string",
                   "Exposure":"public"
               },{
+                  "Name": "anchor_text_list",
+                  "CallingType": "string",
+                  "Exposure":"public"
+              },
+              {
                   "Name": "doGetLinkLoad",
                   "CallingType": "string",
                   "Exposure":"public"

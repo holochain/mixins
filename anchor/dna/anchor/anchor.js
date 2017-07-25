@@ -3,7 +3,7 @@ READ THE WIKI ON ANCHORS FOR MORE INFO
 https://github.com/Holochain/mixins/wiki/Anchors
 ***/
 function genesis() {
-  addAnchor();
+//  addAnchor();
   return true;
 }
 // USED TO ADD THE MAIN ANCHOR TO THE DHT SO THAT WE CAN USE IT TO  HANG OTHER ANCHORS OFF
@@ -38,16 +38,20 @@ function anchor_create(new_anchor){
   var anchor_text=new_anchor.Anchor_Text;
   var new_anchor = {Anchor_Type:anchor_type,Anchor_Text:anchor_text};
   var new_anchorHash=commit("anchor",new_anchor);
-  var anchorTypeHash = getHashAnchorType(anchor_type);
-  pass=anchor_link(anchorTypeHash,new_anchorHash);
-  return pass;
+  var anchorTypeHash = getAnchorTypeHash(anchor_type);
+  debug("anchorTypeHash = "+anchorTypeHash)
+  anchor_link(anchorTypeHash,new_anchorHash);
+
+  var lnk = getLink(anchorTypeHash,"Anchor_Text",{Load:true});
+  debug("anchor_create="+JSON.stringify(lnk.Links[0]))
+  return lnk.Links[0].H;
 }
 
 function anchor_link(anchor_type,anchor_text){
   commit("anchor_links",{Links:[{Base:anchor_type,Link:anchor_text,Tag:"Anchor_Text"}]});
-  var pass=getLink(anchor_type,"Anchor_Text",{Load:true});
-  debug("Anchor_Text: "+JSON.stringify(getLink(anchor_type,"Anchor_Text",{Load:true})));
-  return pass.Links[0].H;;
+//  var pass=getLink(anchor_type,"Anchor_Text",{Load:true});
+//  debug("Anchor_Text: "+JSON.stringify(getLink(anchor_type,"Anchor_Text",{Load:true})));
+//  return pass.Links[0].H;;
 }
 
 
@@ -59,36 +63,77 @@ function anchor_type_list()
   a=getMainAchorHash();
   debug("anchor_main_hash:"+a);
   var anchor_type=doGetLinkLoad(a,"Anchor_Type");
-  debug("AnchorType:"+anchor_type)
   for(var j=0;j<anchor_type.length;j++){
-    anchor_type_list=push(anchor_type[j]);
+   anchor_type_list[j]=anchor_type[j].Anchor_Type
+
   }
   debug("anchor_type_list:"+anchor_type_list)
 return anchor_type_list;
 }
 
-//NOT TESTED
-function anchor_update(anchor_type,old_anchorText,new_anchorText){
+
+//USED FOR RETRIVING ALL THE ANCHOR_Text THAT ARE HOOKED ON a Anchor
+// List all the anchor linked to from "AnchorType" created in genesis
+function anchor_text_list(anchor_type)
+{
+  var anchor_text_list=[];
+  //anchor_type={Anchor_Type:anchor_type,Anchor_Text:""},
+  var anchorTypeHash = getAnchorTypeHash(anchor_type);
+  var Anchor_text = doGetLinkLoad(anchorTypeHash,"Anchor_Text");
+
+  for(var j=0;j<Anchor_text.length;j++){
+   anchor_text_list[j]=Anchor_text[j].Anchor_Text
+   debug("KR : "+JSON.stringify(Anchor_text[0].Anchor_Text))
+  }
+  debug("anchor_text_list:"+anchor_text_list)
+  return anchor_text_list;
+}
+
+
+//TESTED NOT UPDATING YER
+function anchor_update(updateText)
+{
+  var anchor_type = updateText.anchor_type;
+  var old_anchorText = updateText.old_anchorText;
+  var new_anchorText = updateText.new_anchorText;
   var oldAnchor={Anchor_Type:anchor_type,Anchor_Text:old_anchorText};
   var oldAnchorHash = makeHash(oldAnchor);
 
-  var newAnchor={Anchor_Type:anchor_type,Anchor_Text:new_anchorText};
-  var newAnchorHash = makeHash(newAnchor);
+  newAnchor={Anchor_Type:anchor_type,Anchor_Text:new_anchorText};
+//  var newAnchorHash = makeHash(newAnchor);
+  var anchorTypeHash = getAnchorTypeHash(anchor_type);
 
-  var anchorTypeHash = getFavouritePosts();
-
-  var updatedAnchor = update("anchor",newAnchorHash,oldAnchorHash);
-  debug("Anchor text successfully updated ! New anchor hash : "+updatedAnchor);
-  anchor_updatelink(anchorTypeHash,oldAnchorHash,newAnchorHash);
+  var kr = doGetLinkLoad(anchorTypeHash,"Anchor_Text");
+  var n = kr.length - 1;
+  debug("N="+n);
+if(n>=0){
+  oldA=kr[n]
+debug("oldAnchor : "+JSON.stringify(oldA))
+    var updatedAnchor = update("anchor",newAnchor,oldA.H);
+debug(newAnchor+" is "+updatedAnchor);
+    anchor_updatelink(anchorTypeHash,oldA,updatedAnchor);
 }
-//NOT TESTEDA
+/*  var updatedAnchor = update("anchor",newAnchor,oldAnchorHash);
+//  debug("Old text : "+updateText.old_anchorText+" Old hash : "+oldAnchorHash);
+//  debug("New text : "+updateText.new_anchorText+" New hash : "+newAnchorHash);
+//  debug("Anchor text successfully updated ! New anchor hash : "+updatedAnchor);
+  debug(newAnchor+" is "+updatedAnchor);
+  anchor_updatelink(anchorTypeHash,oldAnchorHash,newAnchorHash);
+*/
+  var updcheck = getLink(anchorTypeHash,"Anchor_Text",{Load:true});
+  return updcheck.Links[0].H;
+}
+
 function anchor_updatelink(anchorTypeHash,oldAnchorHash,newAnchorHash)
 {
-  commit("anchorType_links",
+
+  commit("anchor_links",
          {Links:[
              {Base:anchorTypeHash,Link:oldAnchorHash,Tag:"Anchor_Text",LinkAction:HC.LinkAction.Del},
              {Base:anchorTypeHash,Link:newAnchorHash,Tag:"Anchor_Text"}
          ]});
+         debug("Linked : "+JSON.stringify(getLink(anchorTypeHash,"Anchor_Text",{Load:true})));
+
 }
 
 
@@ -103,7 +148,7 @@ function getMainAchorHash(){
   return anchor_main_hash;
 }
 
-function getHashAnchorType(anchor_type)
+function getAnchorTypeHash(anchor_type)
 {
   var anchorType = {Anchor_Type:anchor_type,Anchor_Text:""};
   var anchorTypeHash =makeHash(anchorType);
