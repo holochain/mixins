@@ -6,12 +6,17 @@
 
     For details, see: https://github.com/Holochain/mixins/wiki/Anchors
 
-    NOtes to add to docs:
+    Notes to add to docs:
 
         - Can't use one call to removeFromList to remove multiple entries of same value but having different entry types
 */
 
-var _anchor_generic_ = "_anchor_generic_";
+/* Holocain API */ var _core_remove=remove;remove=function(a,b){return checkForError("remove",_core_remove(a,b))};var _core_makeHash=makeHash;makeHash=function(a,b){return checkForError("makeHash",_core_makeHash(a,b))};var _core_debug=debug;debug=function(a){return checkForError("debug",_core_debug(JSON.stringify(a)))};var _core_call=call;call=function(a,b,c){return __holochain_api_check_for_json(checkForError("call",_core_call(a,b,c)))};var _core_commit=commit;commit=function(a,b){return checkForError("commit",_core_commit(a,b))};var _core_get=get;get=function(a,b){return __holochain_api_check_for_json(checkForError("get",b===undefined?_core_get(a):_core_get(a,b)))};var _core_getLinks=getLinks;getLinks=function(a,b,c){return checkForError("getLinks",_core_getLinks(a,b,c))};var _core_send=send;send=function(a,b,c){return __holochain_api_check_for_json(checkForError("send",c===undefined?_core_send(a,b):_core_send(a,b,c)))};function __holochain_api_check_for_json(rtn){try{rtn=JSON.parse(rtn)}catch(err){}return rtn}function checkForError(func,rtn){if(typeof rtn==="object"&&rtn.name=="HolochainError"){var errsrc=new getErrorSource(4);var message='HOLOCHAIN ERROR! "'+rtn.message.toString()+'" on '+func+(errsrc.line===undefined?"":" in "+errsrc.functionName+" at line "+errsrc.line+", column "+errsrc.column);throw{name:"HolochainError",function:func,message:message,holochainMessage:rtn.message,source:errsrc,toString:function(){return this.message}}}return rtn}function getErrorSource(depth){try{throw new Error}catch(e){var line=e.stack.split("\n")[depth];var reg=/at (.*) \(.*:(.*):(.*)\)/g.exec(line);if(reg){this.functionName=reg[1];this.line=reg[2];this.column=reg[3]}}}
+
+// script globals
+var ANCHOR_GENERIC = "_anchor_generic_";
+var ENTRY_TYPE_PROP_NAME = "__ANCHORS_ENTRY_TYPE__";
+var ANCHOR_DELIMETER = "_-_anchor_delimeter_-_";
 
 function genesis() {
     return true;
@@ -21,72 +26,70 @@ function set(parms) {
 
     var anchor = parms === undefined ? undefined : parms.anchor;
     var value = parms === undefined ? undefined : parms.value;
-    var entryType = parms === undefined ? undefined : parms.entryType == undefined ? _anchor_generic_ : parms.entryType;
+    var entryType = parms === undefined ? undefined : parms.entryType == undefined ? ANCHOR_GENERIC : parms.entryType;
     var preserveOldValueEntry = parms === undefined ? undefined : parms.preserveOldValueEntry == undefined ? false : parms.preserveOldValueEntry;
-
-    if (anchor == undefined)
-        return new errorObject("anchor is a required parameter!");
-
-    if (value == undefined)
-        return new errorObject("value is a required parameter!");
+    var anchorHash = parms === undefined ? undefined : parms.anchorHash;
+    var valueHash = parms === undefined ? undefined : parms.valueHash;
 
     if (preserveOldValueEntry != true && preserveOldValueEntry != false)
-        return new errorObject("preserveOldValueEntry must be true or false!");
+        throw new errorObject("preserveOldValueEntry must be true or false!");
 
-    // if (parms.entryType === undefined)
-    //     if (typeof value !== 'string' && !(value instanceof String))
-    //         return new errorObject("If entryType is not specified, value must be a string");
+    if (anchorHash == undefined) {
+        if (anchor == undefined)
+            throw new errorObject("Must pass either anchor or anchorHash!");
 
-    var anchor_hash = makeHash("anchor_base", anchor);
+        anchorHash = makeHash("anchor_base", anchor);
+    }
+    else if (anchor != undefined)
+        throw new errorObject("Can't pass both anchor and anchorHash!");
+
+    var newAnchor = false;
 
     // Lookup the base entry
-    var links = getLinks(anchor_hash, _anchor_generic_, { Load: true });
+    try { var links = getLinks(anchorHash, ANCHOR_GENERIC, { Load: true }); }
 
-    if (isErr(links)) // getLink got an error
+    catch (err) // getLink got an error
     {
-        if (links.message == "hash not found") // hash not found, create the base entry, and continue with empty links list
+        if (err.holochainMessage == "hash not found") // hash not found, create the base entry, and continue with empty links list
         {
-            var anchor_hash = commit("anchor_base", anchor);
-
-            if (isErr(anchor_hash)) // failed
-                return anchor_hash;
-
-            links = { Links: [] };
+            var anchorHash = commit("anchor_base", anchor);
+            links = [];
+            newAnchor = true;
         }
-        else if (links.message == "No links for " + _anchor_generic_)
-            return new errorObject("\"" + anchor + "\" is not a simple anchor link base!");
+        else if (err.holochainMessage == "No links for " + ANCHOR_GENERIC)
+            throw new errorObject("\"" + anchor + "\" is not a simple anchor link base!");
         else
-            return links; // other error, return it
+            throw err; // other error, throw it
 
     }
-    else if (links.length != 1) // an existing Key/Value base entry will only always have just 1 link entry, no more, no less
-        return new errorObject("\"" + anchor + "\" is not a simple anchor link base!");
 
+    if (links.length != 1 && !newAnchor) // an existing Key/Value base entry will only always have just 1 link entry, no more, no less
+        throw new errorObject("\"" + anchor + "\" is not a simple anchor link base!");
 
-    // if this is a generic entryType, always stringify it
-    if (parms.entryType === undefined)
-        value = JSON.stringify(value);
+    // validate value parameters and generate valueHash if needed
+    if (valueHash == undefined) {
+        if (value == undefined)
+            throw new errorObject("Must pass either value or valueHash!");
 
-    // put the value on the chain
-    var value_hash = commit(entryType, value);
-
-    if (isErr(value_hash)) // failed
-        return value_hash;
+        valueHash = commit(entryType, makeAnchorValue(entryType, value));
+    }
+    else if (value != undefined)
+        throw new errorObject("Can't pass both value and valueHash!");
 
     // if this is not a new key, delete the old value and link
     if (links.length == 1) {
 
-        commit("anchor_link", { Links: [{ Base: anchor_hash, Link: links[0].Hash, Tag: _anchor_generic_, LinkAction: HC.LinkAction.Del }] });
+        commit("anchor_link", { Links: [{ Base: anchorHash, Link: links[0].Hash, Tag: ANCHOR_GENERIC, LinkAction: HC.LinkAction.Del }] });
 
         if (!preserveOldValueEntry)
-            remove(links[0].Hash);
+            remove(links[0].Hash, "anchors-set");
 
     }
 
     // add the new value's link
-    var link_hash = commit("anchor_link", { Links: [{ Base: anchor_hash, Link: value_hash, Tag: _anchor_generic_ }] });
+    var link_hash = commit("anchor_link", { Links: [{ Base: anchorHash, Link: valueHash, Tag: ANCHOR_GENERIC }] });
 
-    return anchor_hash;
+    return { anchorHash: anchorHash, valueHash: valueHash, linkHash: link_hash };
 
 }
 
@@ -100,34 +103,29 @@ var get = function get(parms) {
 
     if (anchorHash == undefined) {
         if (anchor == undefined)
-            return new errorObject("Must pass either anchor or anchorHash!");
+            throw new errorObject("Must pass either anchor or anchorHash!");
 
         anchorHash = makeHash("anchor_base", anchor);
     }
     else if (anchor != undefined)
-        return new errorObject("Can't pass both anchor and anchorHash!");
+        throw new errorObject("Can't pass both anchor and anchorHash!");
 
     // The value is stored by link reference with the anchor name as the base. Get it!
-    var links = getLinks(anchorHash, _anchor_generic_, { Load: true });
+    try { var links = getLinks(anchorHash, ANCHOR_GENERIC, { Load: true }); }
 
-    if (isErr(links)) // failed
-    {
-        if (links.message == "hash not found")
+    catch (err) {
+        if (err.holochainMessage == "hash not found")
             return null;
-        else if (links.message == "No links for " + _anchor_generic_)
-            return new errorObject("\"" + anchor + "\" is not a simple anchor link base!");
+        else if (err.holochainMessage == "No links for " + ANCHOR_GENERIC)
+            throw new errorObject("\"" + anchor + "\" is not a simple anchor link base!");
 
-        return links;
+        throw err;
     }
 
-    if (links.length == 0) return new errorObject("\"" + anchor + "\" is not a simple anchor link base because it has 0 links!");
-    if (links.length > 1) return new errorObject("\"" + anchor + "\" is not a simple anchor link base because it has more than 1 link!");
+    if (links.length == 0) throw new errorObject("\"" + anchor + "\" is not a simple anchor link base because it has 0 links!");
+    if (links.length > 1) throw new errorObject("\"" + anchor + "\" is not a simple anchor link base because it has more than 1 link!");
 
-    var rtn = links[0].Entry;
-
-    // if the entry was stored with entryType of _anchor_generic_ then no entryType was specified on set, so we stringify'ed it at store time... parse it back!
-    if (links[0].EntryType == _anchor_generic_)
-        rtn = JSON.parse(rtn);
+    var rtn = getAnchorValue(links[0].Entry);
 
     return rtn;
 
@@ -137,129 +135,107 @@ function addToList(parms) {
 
     var anchor = parms === undefined ? undefined : parms.anchor;
     var value = parms === undefined ? undefined : parms.value;
-    var entryType = parms === undefined ? undefined : parms.entryType == undefined ? _anchor_generic_ : parms.entryType;
-    var index = parms === undefined ? undefined : parms.index == undefined ? _anchor_generic_ : JSON.stringify(parms.index);
-    var preserveOldValueEntry = parms === undefined ? undefined : parms.preserveOldValueEntry == undefined ? false : parms.entryType;
+    var entryType = parms === undefined ? undefined : parms.entryType == undefined ? ANCHOR_GENERIC : parms.entryType;
+    var preserveOldValueEntry = parms === undefined ? undefined : parms.preserveOldValueEntry == undefined ? false : parms.preserveOldValueEntry;
+    var anchorHash = parms === undefined ? undefined : parms.anchorHash;
+    var valueHash = parms === undefined ? undefined : parms.valueHash;
 
-    if (anchor == undefined)
-        return new errorObject("anchor is a required parameter!");
+    if (anchorHash == undefined) {
+        if (anchor == undefined)
+            throw new errorObject("Must pass either anchor or anchorHash!");
 
-    if (value == undefined)
-        return new errorObject("value is a required parameter!");
+        anchorHash = makeHash("anchor_base", anchor);
+    }
+    else if (anchor != undefined)
+        throw new errorObject("Can't pass both anchor and anchorHash!");
 
-    var anchor_hash = makeHash("anchor_base", anchor);
+    // use a random tag so we get a unique link hash with every entry ensuring they are part of the list
+    var tag = entryType + ANCHOR_DELIMETER + makeRandomString(16);
 
-    // Lookup the base entry
-    var links = getLinks(anchor_hash, index, { Load: false });
-
-    if (isErr(links)) // getLink got an error
+    // loop until we have a non-existing tag, will virtually always be first try
+    while(true)
     {
-        if (links.message == "hash not found") // hash not found, create the base entry, and continue with empty links list
+        // check the base entry and tag
+        try { var links = getLinks(anchorHash, tag, { Load: false }); }
+
+        catch (err) 
         {
-            var anchor_hash = commit("anchor_base", anchor);
+            if (err.holochainMessage == "hash not found") // hash not found, create the base entry, and BREAK OUT OF THE LOOP!
+            {
+                var anchorHash = commit("anchor_base", anchor);
+                break;
+            }
+            else if (err.holochainMessage == "No links for " + tag) // no entries on the list yet, BREAK OUT OF THE LOOP!
+                break;
+            else {
+                throw err; // other error, return it
+            }
 
-            if (isErr(anchor_hash)) // failed
-                return anchor_hash;
-
-            links = { Links: [] };
-        }
-        else if (links.message == "No links for " + (index === undefined ? "" : index)) // an index was specified and it doesn't exist
-            var x = "x"; // do nothing because that is just fine!
-        else {
-            return links; // other error, return it
         }
 
     }
 
-    // if this is a generic entryType, always stringify it
-    if (parms.entryType === undefined)
-        value = JSON.stringify(value);
+    // validate value parameters and generate valueHash if needed
+    if (valueHash == undefined) {
+        if (value == undefined)
+            throw new errorObject("Must pass either value or valueHash!");
 
-    // put the value on the chain
-    var value_hash = commit(entryType, value);
-
-    if (isErr(value_hash)) // failed
-        return value_hash;
-
-    // if index was specified, delete the old value by that index (if there was one)
-    if (index != _anchor_generic_ && links.length == 1) {
-        commit("anchor_link", { Links: [{ Base: anchor_hash, Link: links[0].Hash, Tag: index, LinkAction: HC.LinkAction.Del }] });
-
-        if (!preserveOldValueEntry)
-            remove(links[0].Hash);
+        valueHash = commit(entryType, makeAnchorValue(entryType, value));
     }
+    else if (value != undefined)
+        throw new errorObject("Can't pass both value and valueHash!");
 
     // add the new value's link
-    var link_hash = commit("anchor_link", { Links: [{ Base: anchor_hash, Link: value_hash, Tag: index }] });
+    var linkHash = commit("anchor_link", { Links: [{ Base: anchorHash, Link: valueHash, Tag: tag }] });
 
-    return anchor_hash;
+    return { anchorHash: anchorHash, valueHash: valueHash, linkHash: linkHash };
 
 }
+
+function makeRandomString(length) {
+    var text = "";
+    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  
+    for (var i = 0; i < length; i++)
+      text += possible.charAt(Math.floor(Math.random() * possible.length));
+  
+    return text;
+  }
 
 function getFromList(parms) {
 
     var anchor = parms === undefined ? undefined : parms.anchor;
     var anchorHash = parms === undefined ? undefined : parms.anchorHash;
-    var index = parms === undefined ? undefined : parms.index == undefined ? undefined : JSON.stringify(parms.index);
 
     if (anchorHash == undefined) {
         if (anchor == undefined)
-            return new errorObject("Must pass either anchor or anchorHash!");
+            throw new errorObject("Must pass either anchor or anchorHash!");
 
         anchorHash = makeHash("anchor_base", anchor);
     }
     else if (anchor != undefined)
-        return new errorObject("Can't pass both anchor and anchorHash!");
+        throw new errorObject("Can't pass both anchor and anchorHash!");
 
-    // The value is stored by link reference with the anchor name as the base. Get it!
-    var links = getLinks(anchorHash, index === undefined ? "" : index, { Load: true });
+    // get all links on that base
+    try { var links = getLinks(anchorHash, "", { Load: true }); }
 
-    if (isErr(links)) // failed
+    catch (err)// failed
     {
-        if (links.message == "hash not found")
+        if (err.holochainMessage == "hash not found")
             return null;
-        else if (links.message == ("No links for " + (index === undefined ? "" : index))) // an index was specified and it doesn't exist
-            var x = "x"; // do nothing because that is just fine!
+        else if (err.holochainMessage == ("No links for " + ANCHOR_GENERIC)) // no entries!
+            return [];
         else
-            return links;
+            throw err;
     }
 
-    var rtn;
+    var rtn = [];
 
-    if (index === undefined) { // an index was not specified
-        rtn = [];
+    for (var x = 0; x < links.length; x++)
+    {
+        var value = getAnchorValue(links[x].Entry);
 
-        hasIndexes = false;
-
-        // check if any entries have indexes (tags other than _anchor_generic_)
-        for (var x = 0; x < links.length; x++)
-            if (links[x].Tag != _anchor_generic_) {
-                hasIndexes = true;
-                break;
-            }
-
-        for (var x = 0; x < links.length; x++) {
-            var value = links[x].Entry;
-
-            // if the entry was stored with entryType of _anchor_generic_ then no entryType was specified on addToList, so we stringify'ed it at store time... parse it back!
-            if (links[x].EntryType == _anchor_generic_)
-                value = JSON.parse(value);
-
-            if (hasIndexes)
-                rtn.push({ index: links[x].Tag == _anchor_generic_ ? _anchor_generic_ : JSON.parse(links[x].Tag), value: value });
-            else
-                rtn.push(value);
-
-        }
-    }
-    else { // an index was specified
-        var value = links[0].Entry;
-
-        // if the entry was stored with no entryType, we stringify'ed it at store time... parse it back!
-        if (links[0].EntryType == _anchor_generic_)
-            value = JSON.parse(value);
-
-        rtn = value;
+        rtn.push(value);
     }
 
     return rtn;
@@ -273,92 +249,241 @@ function removeFromList(parms) {
     var anchorHash = parms === undefined ? undefined : parms.anchorHash;
     var value = parms === undefined ? undefined : parms.value;
     var valueHash = parms === undefined ? undefined : parms.valueHash;
-    var entryType = parms === undefined ? undefined : parms.entryType == undefined ? _anchor_generic_ : parms.entryType;
-    var index = parms === undefined ? undefined : parms.index == undefined ? undefined : JSON.stringify(parms.index);
-    var preserveOldValueEntry = parms === undefined ? undefined : parms.preserveOldValueEntry == undefined ? false : parms.entryType;
-
-    // PARAMETER VALIDATION *******************************
-
-    if (valueHash === undefined && value !== undefined)
-        if (entryType == _anchor_generic_) // if it's generic, we stringified it at store time
-            valueHash = makeHash(entryType, JSON.stringify(value));
-        else
-            valueHash = makeHash(entryType, value);
+    var entryType = parms === undefined ? undefined : parms.entryType == undefined ? ANCHOR_GENERIC : parms.entryType;
+    var preserveOldValueEntry = parms === undefined ? undefined : parms.preserveOldValueEntry == undefined ? false : parms.preserveOldValueEntry;
 
     if (anchorHash === undefined) // didn't get an anchorHash
     {
         if (anchor === undefined)
-            return new errorObject("Must pass either anchor or anchorHash!");
+            throw new errorObject("Must pass either anchor or anchorHash!");
 
         anchorHash = makeHash("anchor_base", anchor);
     }
     else if (anchor !== undefined) // got an anchor hash and an anchor
-        return new errorObject("Can't pass both anchor and anchorHash!");
+        throw new errorObject("Can't pass both anchor and anchorHash!");
 
-    if (index === undefined) // didn't get an index
-    {
-        if (valueHash === undefined)
-            return new errorObject("Must pass either index or value or valueHash!");
+    if (valueHash === undefined) {
+        if (value === undefined) 
+            throw new errorObject("Must pass either value or valueHash!");
+
+        valueHash = makeHash(entryType, makeAnchorValue(entryType, value));
     }
-    else if (valueHash !== undefined) // got an index and a valueHash
-        return new errorObject("Can't pass both index and (value or valueHash)!");
+    else if (value !== undefined)
+        throw new errorObject("Can't pass both value and valueHash!");
 
-    // ******************************************************
+    // get the links on that base
+    try { var links = getLinks(anchorHash, "", { Load: true }); }
 
-    // The variable value is stored by link reference with the anchor name as the base. Get it!
-    var links = getLinks(anchorHash, index === undefined ? "" : index, { Load: true });
-
-    if (isErr(links)) // failed
+    catch (err) // failed
     {
-
-        if (links.message == "hash not found")
-            return new errorObject("Anchor does not exist!");
-        else if (links.message == "No links for " + (index === undefined ? "" : index)) // an index was specified and it doesn't exist
-            var x = "x"; // do nothing because that is just fine!
+        if (err.holochainMessage == "hash not found")
+            throw new errorObject("Anchor does not exist!");
+        else if (err.holochainMessage == "No links for ") // no links on that base!
+            return 0;
         else
-            return links;
+            throw err;
     }
-    else if (links.length == 0)
-        return 0; // nothing to do!
 
-    if (index !== undefined)  // we got passed an index, so delete that one by tag
-    {
+    var count = 0;
 
-        // we know there is only one because we check on addToList
-        if (links.length > 1)
-            return new errorObject("\"" + anchor + "\" is not an anchor list link base because it has more than 1 link with the same tag!");
+    for (var x = 0; x < links.length; x++) {
 
-        var result = removeLink(anchorHash, links[0].Hash, index, preserveOldValueEntry);
+        var et = links[x].Tag.split(ANCHOR_DELIMETER)[0];
+        if (links[x].Hash == valueHash && entryType == et) {
+            
+            commit("anchor_link", { Links: [{ Base: anchorHash, Link: links[x].Hash, Tag: links[x].Tag, LinkAction: HC.LinkAction.Del }] })
+    
+            // if (!preserveOldValueEntry && count == 0)
+            //     remove(links[x].Hash, "anchors:removeFromList");
 
-        if (isErr(result))
-            return result;
-
-        return 1;
-    }
-    else {
-        var count = 0;
-
-        for (var x = 0; x < links.length; x++) {
-            if (links[x].Hash == valueHash) {
-                var result = removeLink(anchorHash, links[x].Hash, links[x].Tag, preserveOldValueEntry);
-
-                if (isErr(result))
-                    return result;
-
-                count++;
-            }
+            count++;
         }
-
-        return count;
     }
+
+    return count;
 
 }
 
-function removeLink(bashHash, hash, tag, preserveOldValueEntry) {
-    var rtn = commit("anchor_link", { Links: [{ Base: bashHash, Link: hash, Tag: tag, LinkAction: HC.LinkAction.Del }] });
+// a version of makeHash that uses anchorGeneric when no entryType is specified
+function makeAnchorValueHash(parms)
+{
+    return makeHash(parms.entryType === undefined ? ANCHOR_GENERIC : parms.entryType, makeAnchorValue(parms.entryType === undefined ? ANCHOR_GENERIC : parms.entryType, parms.value));
+}
 
-    if (!preserveOldValueEntry)
-        remove(hash);
+// anchor objects always contain their entryType so as to generate unique hashes across the same value with a different entryType
+function makeAnchorValue(entryType, value)
+{
+    return value;
+}
+
+// decodes an anchor object stored on the chain back to it's value prior to the entryType addition that happened in makeAnchorObject
+function getAnchorValue(obj)
+{
+    return obj;
+}
+
+function isObject(item)
+{
+    return item === Object(item);
+}
+
+var testLinksListBase = "";
+var testLinksListResults = [];
+
+function testLinksList()
+{
+    testLinksListBase = commit("anchor_base", "testLinksList");
+
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value1"), Tag: "tag1" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value2"), Tag: "tag1" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value1"), Tag: "tag2" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value2"), Tag: "tag2" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_json_type_for_testing_", "value1"), Tag: "tag1" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_json_type_for_testing_", "value2"), Tag: "tag1" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_json_type_for_testing_", "value1"), Tag: "tag2" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_json_type_for_testing_", "value2"), Tag: "tag2" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_string_type_for_testing_", "value1"), Tag: "tag1" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_string_type_for_testing_", "value2"), Tag: "tag1" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_string_type_for_testing_", "value1"), Tag: "tag2" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_string_type_for_testing_", "value2"), Tag: "tag2" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value1"), Tag: "tag1", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value2"), Tag: "tag1", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value1"), Tag: "tag2", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value2"), Tag: "tag2", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_json_type_for_testing_", "value1"), Tag: "tag1", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_json_type_for_testing_", "value2"), Tag: "tag1", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_json_type_for_testing_", "value1"), Tag: "tag2", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_json_type_for_testing_", "value2"), Tag: "tag2", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_string_type_for_testing_", "value1"), Tag: "tag1", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_string_type_for_testing_", "value2"), Tag: "tag1", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_string_type_for_testing_", "value1"), Tag: "tag2", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_string_type_for_testing_", "value2"), Tag: "tag2", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value1"), Tag: "tag1" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value1"), Tag: "tag1" }] });
+    testLinksListResults.push(testLinksListGetCount());
+
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value3"), Tag: "tag1" }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value3"), Tag: "tag1" }] });
+    testLinksListResults.push(testLinksListGetCount());
+
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value3"), Tag: "tag1", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+    commit("anchor_link", { Links: [{ Base: testLinksListBase, Link: commit("_anchor_generic_", "value1"), Tag: "tag1", LinkAction: HC.LinkAction.Del }] });
+    testLinksListResults.push(testLinksListGetCount());
+
+    return testLinksListResults;
+
+}
+
+function testAnchors()
+{
+    testLinksListBase = commit("anchor_base", "testLinksList");
+
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_generic_", value: commit("_anchor_generic_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_generic_", value: commit("_anchor_generic_", "value2") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_generic_", value: commit("_anchor_generic_", "value3") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_generic_", value: commit("_anchor_generic_", "value4") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_json_type_for_testing_", value: commit("_anchor_json_type_for_testing_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_json_type_for_testing_", value: commit("_anchor_json_type_for_testing_", "value2") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_json_type_for_testing_", value: commit("_anchor_json_type_for_testing_", "value3") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_json_type_for_testing_", value: commit("_anchor_json_type_for_testing_", "value4") });
+    testLinksListResults.push(testLinksListGetCount());
+
+    removeFromList({ anchorHash: testLinksListBase, entryType: "_anchor_generic_", value: commit("_anchor_generic_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+    removeFromList({ anchorHash: testLinksListBase, entryType: "_anchor_generic_", value: commit("_anchor_generic_", "value2") });
+    testLinksListResults.push(testLinksListGetCount());
+    removeFromList({ anchorHash: testLinksListBase, entryType: "_anchor_generic_", value: commit("_anchor_generic_", "value3") });
+    testLinksListResults.push(testLinksListGetCount());
+    removeFromList({ anchorHash: testLinksListBase, entryType: "_anchor_generic_", value: commit("_anchor_generic_", "value4") });
+    testLinksListResults.push(testLinksListGetCount());
+    removeFromList({ anchorHash: testLinksListBase, entryType: "_anchor_json_type_for_testing_", value: commit("_anchor_json_type_for_testing_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+    removeFromList({ anchorHash: testLinksListBase, entryType: "_anchor_json_type_for_testing_", value: commit("_anchor_json_type_for_testing_", "value2") });
+    testLinksListResults.push(testLinksListGetCount());
+    removeFromList({ anchorHash: testLinksListBase, entryType: "_anchor_json_type_for_testing_", value: commit("_anchor_json_type_for_testing_", "value3") });
+    testLinksListResults.push(testLinksListGetCount());
+    removeFromList({ anchorHash: testLinksListBase, entryType: "_anchor_json_type_for_testing_", value: commit("_anchor_json_type_for_testing_", "value4") });
+    testLinksListResults.push(testLinksListGetCount());
+
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_generic_", value: commit("_anchor_generic_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_generic_", value: commit("_anchor_generic_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_generic_", value: commit("_anchor_generic_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_generic_", value: commit("_anchor_generic_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_json_type_for_testing_", value: commit("_anchor_json_type_for_testing_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_json_type_for_testing_", value: commit("_anchor_json_type_for_testing_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_json_type_for_testing_", value: commit("_anchor_json_type_for_testing_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+    addToList({ anchorHash: testLinksListBase, entryType: "_anchor_json_type_for_testing_", value: commit("_anchor_json_type_for_testing_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+
+    removeFromList({ anchorHash: testLinksListBase, entryType: "_anchor_generic_", value: commit("_anchor_generic_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+    removeFromList({ anchorHash: testLinksListBase, entryType: "_anchor_json_type_for_testing_", value: commit("_anchor_json_type_for_testing_", "value1") });
+    testLinksListResults.push(testLinksListGetCount());
+
+    return testLinksListResults;
+}
+
+function testLinksListGetCount()
+{
+    var rtn = 0;
+
+    var links;
+    
+    try { 
+        links = getLinks(testLinksListBase, "", {});
+        rtn = links.length; 
+
+        // for(var x = 0; x < rtn; x++)
+        //     debug(links[x].Hash + " - " + links[x].Tag);
+    }
+    catch (err) {}
+
+    // debug("");
 
     return rtn;
 }
@@ -366,12 +491,9 @@ function removeLink(bashHash, hash, tag, preserveOldValueEntry) {
 function errorObject(errorText) {
     this.name = "AnchorsError";
     this.message = errorText;
+    this.toString = function () { return this.message; };
 }
 
-// helper function to determine if value returned from holochain function is an error
-function isErr(result) {
-    return ((typeof result === 'object') && result.name == "HolochainError");
-}
 
 /*************
 VALIDATION METHODS
@@ -397,8 +519,10 @@ function validateLink(linkingEntryType, baseHash, linkHash, tag, pkg, sources) {
 }
 
 function validateMod(entry_type, hash, newHash, pkg, sources) { return false; }
-function validateDel(entry_type, hash, pkg, sources) { return false; }
+function validateDel(entry_type, hash, pkg, sources) { return true; }
 function validatePutPkg(entry_type) { return null }
 function validateModPkg(entry_type) { return null }
 function validateDelPkg(entry_type) { return null }
 function validateLinkPkg(entry_type) { return null }
+
+

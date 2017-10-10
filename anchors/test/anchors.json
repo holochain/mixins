@@ -4,19 +4,17 @@
         "Zome": "anchors",
         "FnName": "get",
         "Input": { },
-        "Output": "{\"message\":\"Must pass either anchor or anchorHash!\",\"name\":\"AnchorsError\"}",
         "Exposure": "public",
-        "Err": "",
+        "Err": "Must pass either anchor or anchorHash!",
         "Regexp": ""
     },
     {
         "Convey": "Check get with no parameters 2",
         "Zome": "anchors",
         "Raw": true,
-        "Input": "JSON.stringify(get());",
-        "Output": "{\"message\":\"Must pass either anchor or anchorHash!\",\"name\":\"AnchorsError\"}",
+        "Input": "get();",
         "Exposure": "public",
-        "Err": "",
+        "Err": "JS exec error: Must pass either anchor or anchorHash!",
         "Regexp": ""
     },
     {
@@ -24,9 +22,8 @@
         "Zome": "anchors",
         "FnName": "set",
         "Input": { },
-        "Output": "{\"message\":\"anchor is a required parameter!\",\"name\":\"AnchorsError\"}",
         "Exposure": "public",
-        "Err": "",
+        "Err": "Must pass either anchor or anchorHash!",
         "Regexp": ""
     },
     {
@@ -34,29 +31,26 @@
         "Zome": "anchors",
         "FnName": "set",
         "Input": { },
-        "Output": "{\"message\":\"anchor is a required parameter!\",\"name\":\"AnchorsError\"}",
         "Exposure": "public",
-        "Err": "",
+        "Err": "Must pass either anchor or anchorHash!",
         "Regexp": ""
     },
     {
         "Convey": "Check set with no anchor parameter",
         "Zome": "anchors",
         "Raw": true,
-        "Input": "JSON.stringify(set({ value: 'test_value' }));",
-        "Output": "{\"message\":\"anchor is a required parameter!\",\"name\":\"AnchorsError\"}",
+        "Input": "set({ value: 'test_value' });",
         "Exposure": "public",
-        "Err": "",
+        "Err": "JS exec error: Must pass either anchor or anchorHash!",
         "Regexp": ""
     },
     {
         "Convey": "Check set with no value parameter",
         "Zome": "anchors",
         "Raw": true,
-        "Input": "JSON.stringify(set({ anchor: 'test_anchor' }));",
-        "Output": "{\"message\":\"value is a required parameter!\",\"name\":\"AnchorsError\"}",
+        "Input": "set({ anchor: 'test_anchor' });",
         "Exposure": "public",
-        "Err": "",
+        "Err": "JS exec error: Must pass either value or valueHash!",
         "Regexp": ""
     },
     {
@@ -73,20 +67,18 @@
         "Convey": "Check set with prexisting entry without any links",
         "Zome": "anchors",
         "Raw": true,
-        "Input": "commit('anchor_base', 'prexisting_entry'); JSON.stringify(set({ 'anchor': 'prexisting_entry', 'value': 'something' }));",
-        "Output": "{\"message\":\"\\\"prexisting_entry\\\" is not a simple anchor link base!\",\"name\":\"AnchorsError\"}",
+        "Input": "commit('anchor_base', 'prexisting_entry'); set({ 'anchor': 'prexisting_entry', 'value': 'something' });",
         "Exposure": "public",
-        "Err": "",
+        "Err": "JS exec error: \"prexisting_entry\" is not a simple anchor link base!",
         "Regexp": ""
     },
     {
         "Convey": "Check get with prexisting entry without any links",
         "Zome": "anchors",
         "Raw": true,
-        "Input": "JSON.stringify(get({ 'anchor': 'prexisting_entry' }));",
-        "Output": "{\"message\":\"\\\"prexisting_entry\\\" is not a simple anchor link base!\",\"name\":\"AnchorsError\"}",
+        "Input": "get({ 'anchor': 'prexisting_entry' });",
         "Exposure": "public",
-        "Err": "",
+        "Err": "JS exec error: \"prexisting_entry\" is not a simple anchor link base!",
         "Regexp": ""
     },
     {
@@ -94,7 +86,7 @@
         "Zome": "anchors",
         "FnName": "set",
         "Input": { "anchor": "test_key", "value": "test_value" },
-        "Output": "\"%h2%\"",
+        "Output": "{\"anchorHash\":\"%h2%\",\"linkHash\":\"%h%\",\"valueHash\":\"%h1%\"}",
         "Exposure": "public",
         "Err": "",
         "Regexp": ""
@@ -114,7 +106,7 @@
         "Zome": "anchors",
         "FnName": "set",
         "Input": { "anchor": "test_key2", "value": "test_value" },
-        "Output": "\"%h2%\"",
+        "Output": "{\"anchorHash\":\"%h2%\",\"linkHash\":\"%h%\",\"valueHash\":\"%h1%\"}",
         "Exposure": "public",
         "Err": "",
         "Regexp": ""
@@ -134,7 +126,7 @@
         "Zome": "anchors",
         "FnName": "set",
         "Input": { "anchor": "test_key", "value": "test_value_kill_old_value_entry" },
-        "Output": "\"QmQtBC2CDh7cXH7HkLJpMfoScDMiG8yDVM5WiwVqCPuiND\"",
+        "Output": "{\"anchorHash\":\"QmQtBC2CDh7cXH7HkLJpMfoScDMiG8yDVM5WiwVqCPuiND\",\"linkHash\":\"%h%\",\"valueHash\":\"%h3%\"}",
         "Exposure": "public",
         "Err": "",
         "Regexp": ""
@@ -143,10 +135,9 @@
         "Convey": "Check that the old value entry got deleted",
         "Zome": "anchors",
         "Raw": true,
-        "Input": "coreGet(makeHash('_anchor_generic_', JSON.stringify('test_value')));",
-        "Output": "HolochainError: hash not found",
+        "Input": "coreGet(makeAnchorValueHash({ value:'test_value' }));",
         "Exposure": "public",
-        "Err": "",
+        "Err": "JS exec error: HOLOCHAIN ERROR! \"hash deleted\" on get",
         "Regexp": ""
     },
     {
@@ -164,7 +155,7 @@
         "Zome": "anchors",
         "FnName": "set",
         "Input": { "anchor": "test_key", "value": {"name": "object", "value": "test_value2" }, "preserveOldValueEntry": true },
-        "Output": "\"QmQtBC2CDh7cXH7HkLJpMfoScDMiG8yDVM5WiwVqCPuiND\"",
+        "Output": "{\"anchorHash\":\"QmQtBC2CDh7cXH7HkLJpMfoScDMiG8yDVM5WiwVqCPuiND\",\"linkHash\":\"%h%\",\"valueHash\":\"%h2%\"}",
         "Exposure": "public",
         "Err": "",
         "Regexp": ""
@@ -173,8 +164,8 @@
         "Convey": "Check that the old value entry didn't get deleted",
         "Zome": "anchors",
         "Raw": true,
-        "Input": "coreGet(makeHash('_anchor_generic_', JSON.stringify('test_value_kill_old_value_entry')));",
-        "Output": "\"test_value_kill_old_value_entry\"",
+        "Input": "getAnchorValue(coreGet(makeAnchorValueHash({ value: 'test_value_kill_old_value_entry' })));",
+        "Output": "test_value_kill_old_value_entry",
         "Exposure": "public",
         "Err": "",
         "Regexp": ""
@@ -194,7 +185,7 @@
         "Zome": "anchors",
         "FnName": "set",
         "Input": { "anchor": "test_key_non_generic_string", "entryType": "anchor_base", "value": "test_value3"  },
-        "Output": "\"%h2%\"",
+        "Output": "{\"anchorHash\":\"QmTTWS5cWD56PhPhZYbJNNHk8QPKqwvhA3thWLqUoBicnR\",\"linkHash\":\"Qmf9kMEo9BR8xVGfeZqDPospy2uNs1UPikz1BE2uLx5PTg\",\"valueHash\":\"Qmcdh9EZXRsJtdytMRU8BBvmWsy38bpB3w9a3e1HzNoW96\"}",
         "Exposure": "public",
         "Err": "",
         "Regexp": ""
@@ -214,7 +205,7 @@
         "Zome": "anchors",
         "FnName": "set",
         "Input": { "anchor": "test_key_non_generic_json", "entryType": "_anchor_json_type_for_testing_", "value": {"name": "object", "value": "test_value4" } },
-        "Output": "\"%h2%\"",
+        "Output": "{\"anchorHash\":\"QmYcTQ4ukx8o5M5izxE2DkzjAuUg5coMLgzusCRKrtpQJk\",\"linkHash\":\"QmRwR9azt2vv4LhXf2Fr7BG6W4wSkod1SPUnjNPW5KcGZV\",\"valueHash\":\"QmPcAojHhNP5PobSKzswuuojsoJB4tRKYGitCEph9aFAck\"}",
         "Exposure": "public",
         "Err": "",
         "Regexp": ""
@@ -234,7 +225,46 @@
         "Zome": "anchors",
         "FnName": "set",
         "Input": { "anchor": "test_key_non_generic_string", "entryType": "anchor_base", "value": {"name": "object", "value": "test_value5" } },
-        "Output": "{\"message\":\"argument 2 (entry) should be string\",\"name\":\"HolochainError\"}",
+        "Exposure": "public",
+        "Err": "HOLOCHAIN ERROR! \"argument 2 (entry) should be string\" on commit in set at line 74, column 21",
+        "Regexp": ""
+    },
+    {
+        "Convey": "Check set using an anchorhash",
+        "Zome": "anchors",
+        "FnName": "set",
+        "Input": { "anchorHash": "QmYcTQ4ukx8o5M5izxE2DkzjAuUg5coMLgzusCRKrtpQJk", "entryType": "_anchor_json_type_for_testing_", "value": {"name": "object", "value": "test_value5" } },
+        "Output": "{\"anchorHash\":\"QmYcTQ4ukx8o5M5izxE2DkzjAuUg5coMLgzusCRKrtpQJk\",\"linkHash\":\"%h%\",\"valueHash\":\"QmepSHWXHTW5TTV6M89v1mscv2Ed36kKXnN2K2ZUcLeVRr\"}",
+        "Exposure": "public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey": "Check get on set using an anchorhash",
+        "Zome": "anchors",
+        "FnName": "get",
+        "Input": { "anchor": "test_key_non_generic_json" },
+        "Output": "{\"name\":\"object\",\"value\":\"test_value5\"}",
+        "Exposure": "public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey": "Check set using a valueHash",
+        "Zome": "anchors",
+        "Raw": true,
+        "Input": "var valueHash = commit('_anchor_generic_', 'test_value_42'); JSON.stringify(set({ anchor: 'test_anchor_42', valueHash: valueHash }));",
+        "Output": "{\"anchorHash\":\"%h1%\",\"linkHash\":\"%h%\",\"valueHash\":\"QmPn4C9WCtxukKdDqLovw7CfbqHJJKjs3P1wmxXmijDmyR\"}",
+        "Exposure": "public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey": "Check get on set using a valueHash",
+        "Zome": "anchors",
+        "FnName": "get",
+        "Input": { "anchor": "test_anchor_42" },
+        "Output": "\"test_value_42\"",
         "Exposure": "public",
         "Err": "",
         "Regexp": ""
