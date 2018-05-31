@@ -9,8 +9,6 @@ function anchor(anchor){
   var anchorGet = get(anchorHash);
   debug('<mermaid>' + App.Agent.String + '->>DHT:Check to see if ' + anchor.anchorText + ' exists</mermaid>');
   if(anchorGet === null){
-    var anchorType = {anchorType: anchor.anchorType, anchorText: ''};
-    var rootAnchortype =  {anchorType: 'anchorTypes', anchorText: ''};
     var anchorTypeGet = get(makeHash('anchor', anchorType));
     debug('anchorTypeGet ' + JSON.stringify(anchorTypeGet));
     debug('<mermaid>' + App.Agent.String + '-->>DHT:Check to see if ' + anchor.anchorType + ' has been setup</mermaid>');
@@ -23,26 +21,30 @@ function anchor(anchor){
         debug('<mermaid>' + App.Agent.String + '->>DHT:Publish Root of all anchors</mermaid>');
       }
       debug('<mermaid>DHT-->>' + App.Agent.String + ':Return the Root Anchor Type</mermaid>');
-      var anchorTypeHash = commit('anchor', anchorType);
-      debug('<mermaid>' + App.Agent.String + '->>' + App.Agent.String + ':commit ' + anchor.anchorType + ' to local chain</mermaid>');
-      debug('<mermaid>' + App.Agent.String + '->>DHT:Publish ' + anchor.anchorType + '</mermaid>');
-
-      commit('anchor_link', { Links:[{Base: rootAnchorTypeHash, Link: anchorTypeHash, Tag: anchorType.anchorType}]});
+      var anchorTypeHash = commitAnchor(anchorType,rootAnchorTypeHash, anchorType.anchorType);
       debug('<mermaid>' + App.Agent.String + '->>DHT:Link ' + anchor.anchorType + ' to Root of all anchors</mermaid>');
 
     } else {
       anchorTypeHash = makeHash('anchor', anchorType);
       debug('<mermaid>DHT-->>' + App.Agent.String + ':Return the anchorType ' + anchor.anchorType + '</mermaid>');
     }
-    anchorHash = commit('anchor', anchor);
-    debug('<mermaid>' + App.Agent.String + '->>' + App.Agent.String + ':commit ' + anchor.anchorText + ' has been setup</mermaid>');
-    debug('<mermaid>' + App.Agent.String + '->>DHT:Publish ' + anchor.anchorText + '</mermaid>');
-    commit('anchor_link',  { Links:[{Base: anchorTypeHash, Link: anchorHash, Tag: anchor.anchorText}]});
+    anchorHash = commitAnchor(anchor,anchorTypeHash, anchor.anchorText);
     debug('<mermaid>' + App.Agent.String + '->>DHT:Link ' + anchor.anchorText + ' to ' + anchorType.anchorType + '</mermaid>');
   }
   debug('<mermaid>DHT-->>' + App.Agent.String + ':Return the anchor ' + anchor.anchorType + ' = ' + anchor.anchorText + '</mermaid>');
   return anchorHash;
 }
+
+
+// helper function to commit the anchor and the anchor link
+function commitAnchor(anchor,base,tag) {
+    var linkHash = commit('anchor', anchor);
+    debug('<mermaid>' + App.Agent.String + '->>' + App.Agent.String + ':commit ' + tag + ' to local chain</mermaid>');
+    debug('<mermaid>' + App.Agent.String + '->>DHT:Publish ' + tag + '</mermaid>');
+    commit('anchor_link', { Links:[{Base: base, Link: linkHash, Tag: tag}]});
+    return linkHash;
+}
+
 
 /**
  * @param anchor Object of the form {anchorType: <string>, anchorText: <string>}
