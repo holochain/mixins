@@ -1,10 +1,10 @@
 {
-  "Version": 2,
+  "Version": 1,
   "UUID": "00000000-0000-0000-0000-000000000000",
-  "Name": "clutter",
+  "Name": "your-app-name-here",
   "RequiresVersion": 25,
   "Properties": {
-    "description": "distributed micro-blogging (Twitter clone)",
+    "description": "your-app-description-here",
     "language": "en",
     "enableDirectoryAccess": "true"
   },

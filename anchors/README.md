@@ -16,7 +16,7 @@ To install this mixin into your application:
 
 1. copy the `dna/anchors` folder into your application `dna` folder.  This folder contains the zome code.
 
-2. Add the following snippet into your `dna.json` file in the `Zomes` array:
+2. Either use the `dna/dna.json` file as your starter DNA, or add the following snippet into your `dna.json` file in the `Zomes` array:
 
 ``` javascript
     {
