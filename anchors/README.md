@@ -1,7 +1,7 @@
 # Anchors
 
 This mixin provides easy access to a very common pattern for Holochain apps, which
-consists of creating an entry with a know hash, and then using that entry as a base
+consists of creating an entry with a known hash, and then using that entry as a base
 off of which to create links.
 
 We need this pattern in the Holochain world, because you cannot reasonably search the

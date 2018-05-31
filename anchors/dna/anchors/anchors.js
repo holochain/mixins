@@ -8,23 +8,26 @@ function anchor(anchor){
   var anchorHash = makeHash('anchor', anchor);
   var anchorGet = get(anchorHash);
   if(anchorGet === null){
-    var anchorType = {anchorType: anchor.anchorType, anchorText: ''};
-    var rootAnchortype =  {anchorType: 'anchorTypes', anchorText: ''};
     var anchorTypeGet = get(makeHash('anchor', anchorType));
     if(anchorTypeGet === null){
       var rootAnchorTypeHash = makeHash('anchor', rootAnchortype);
       if (get(rootAnchorTypeHash) === null){
         rootAnchorTypeHash = commit('anchor', rootAnchortype);
       }
-      var anchorTypeHash = commit('anchor', anchorType);
-      commit('anchor_link', { Links:[{Base: rootAnchorTypeHash, Link: anchorTypeHash, Tag: anchorType.anchorType}]});
+      var anchorTypeHash = commitAnchor(anchorType,rootAnchorTypeHash, anchorType.anchorType);
     } else {
       anchorTypeHash = makeHash('anchor', anchorType);
     }
-    anchorHash = commit('anchor', anchor);
-    commit('anchor_link',  { Links:[{Base: anchorTypeHash, Link: anchorHash, Tag: anchor.anchorText}]});
+    anchorHash = commitAnchor(anchor,anchorTypeHash, anchor.anchorText);
   }
   return anchorHash;
+}
+
+// helper function to commit the anchor and the anchor link
+function commitAnchor(anchor,base,tag) {
+    var linkHash = commit('anchor', anchor);
+    commit('anchor_link', { Links:[{Base: base, Link: linkHash, Tag: tag}]});
+    return linkHash;
 }
 
 /**
